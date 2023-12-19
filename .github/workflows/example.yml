@@ -15,7 +15,7 @@ jobs:
       - id: fetch-time
         run: |
           # get rfc3339 date
-          now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          now=$(date -u +"%Y-%m-%dT%H%M%SZ")
           echo "IMAGE_DATE=$now" >> $GITHUB_OUTPUT
           echo "IMAGE_DATE=$now"
 
