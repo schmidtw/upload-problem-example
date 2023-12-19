@@ -1,0 +1,72 @@
+---
+name: "Upload problem example"
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  start:
+    runs-on: [ ubuntu-latest ]
+    outputs:
+      matrix:     ${{ steps.set-matrix.outputs.matrix }}
+      IMAGE_DATE: ${{ steps.fetch-time.outputs.IMAGE_DATE }}
+    steps:
+      - id: fetch-time
+        run: |
+          # get rfc3339 date
+          now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          echo "IMAGE_DATE=$now" >> $GITHUB_OUTPUT
+          echo "IMAGE_DATE=$now"
+
+      - name: Checkout Repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - id: set-matrix
+        run: |
+
+          JSON='{ "include": [ { "arch": "x86_64", "cloud": "aws", "distro": "rocky8", "machine": "a", "region": "any", "stage": "prod", "theater": "ap" }, { "arch": "x86_64", "cloud": "aws", "distro": "rocky8", "machine": "a", "region": "any", "stage": "prod", "theater": "eu" }, { "arch": "x86_64", "cloud": "aws", "distro": "rocky8", "machine": "a", "region": "any", "stage": "prod", "theater": "na" }, { "arch": "x86_64", "cloud": "gcp", "distro": "rocky8", "machine": "a", "region": "any", "stage": "prod", "theater": "na" }, { "arch": "x86_64", "cloud": "openstack", "distro": "rocky8", "machine": "a", "region": "any", "stage": "prod", "theater": "na" }, { "arch": "x86_64", "cloud": "aws", "distro": "rocky8", "machine": "a", "region": "any", "stage": "cd", "theater": "na" }, { "arch": "x86_64", "cloud": "gcp", "distro": "rocky8", "machine": "a", "region": "any", "stage": "cd", "theater": "na" }, { "arch": "x86_64", "cloud": "openstack", "distro": "rocky8", "machine": "a", "region": "any", "stage": "cd", "theater": "na" } ] }'
+          echo "matrix=$( echo "$JSON" )" >> $GITHUB_OUTPUT
+
+          echo "$JSON"
+          
+  thing:
+    name: "Do the thing"
+    needs: [ start ]
+    strategy:
+      matrix: ${{ fromJson(needs.start.outputs.matrix) }}
+      fail-fast: false
+    continue-on-error: true
+    runs-on: [ ubuntu-latest ]
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Generate customization
+        run: |
+          mkdir images
+          echo "hello, world" > images/${{ matrix.machine }}-${{ matrix.cloud }}-${{ matrix.region }}-${{ matrix.arch }}-${{ matrix.distro }}-${{ matrix.stage }}-${{ matrix.theater }}-${{ needs.start.outputs.IMAGE_DATE }}.txt
+          echo "---"          > images/${{ matrix.machine }}-${{ matrix.cloud }}-${{ matrix.region }}-${{ matrix.arch }}-${{ matrix.distro }}-${{ matrix.stage }}-${{ matrix.theater }}-${{ needs.start.outputs.IMAGE_DATE }}.yml
+
+      - name: Show Results
+        run: |
+          tree -sh .
+
+      - name: Archive Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Image Metadata
+          path: |
+            ./images/*.txt
+            ./images/*.yml
+
+  done:
+    name: "Done"
+    needs: [ thing ]
+    runs-on: [ ubuntu-latest ]
+    steps:
+    - name: Output done
+      run: |
+        echo "Done"
